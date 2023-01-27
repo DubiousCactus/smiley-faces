@@ -27,7 +27,7 @@ from utils import colorize, seed_everything, to_cuda
 
 def launch_experiment(
     training,
-    dataset: torch.utils.data.Dataset,
+    dataset: Partial[torch.utils.data.Dataset],
     data_loader: Partial[torch.utils.data.DataLoader],
     model: Partial[torch.nn.Module],
     optimizer: Partial[torch.optim.Optimizer],
@@ -45,7 +45,7 @@ def launch_experiment(
 
     "============ Partials instantiation ============"
     model_inst = model(
-        encoder_input_dim=just(dataset).img_dim
+        input_dim=just(dataset).img_dim ** 2
     )  # Use just() to get the config out of the Zen-Partial
     train_dataset, val_dataset = dataset(split="train"), dataset(split="val")
     opt_inst = optimizer(model_inst.parameters())

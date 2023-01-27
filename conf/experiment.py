@@ -20,8 +20,8 @@ from torch.utils.data import DataLoader
 from unique_names_generator import get_random_name
 from unique_names_generator.data import ADJECTIVES, NAMES
 
-from dataset.base.image import ImageDataset
-from model.example import ExampleModel
+from dataset.mnist import MNISTDataset
+from model.vae import VAE
 from train import launch_experiment
 
 # Set hydra.job.chdir=True using store():
@@ -41,37 +41,24 @@ hydra_store.add_to_hydra_store()
 pbuilds = make_custom_builds_fn(zen_partial=True, populate_full_signature=False)
 
 " ================== Dataset ================== "
-
 # Dataclasses are a great and simple way to define a base config group with default values.
 @dataclass
 class ImageDatasetConf:
-    dataset_root: str = "data/a"
     tiny: bool = False
-    normalize: bool = True
+    normalize: bool = False
     augment: bool = False
-    img_dim: int = ImageDataset.IMG_SIZE[0]
 
 
 # Pre-set the group for store's dataset entries
 dataset_store = store(group="dataset")
-dataset_store(pbuilds(ImageDataset, builds_bases=(ImageDatasetConf,)), name="image_a")
-
 dataset_store(
     pbuilds(
-        ImageDataset,
+        MNISTDataset,
         builds_bases=(ImageDatasetConf,),
-        dataset_root="data/b",
-        img_dim=64,
+        dataset_root="data/mnist",
+        img_dim=MNISTDataset.IMG_SIZE[0],
     ),
-    name="image_b",
-)
-dataset_store(
-    pbuilds(
-        ImageDataset,
-        builds_bases=(ImageDatasetConf,),
-        tiny=True,
-    ),
-    name="image_a_tiny",
+    name="mnist",
 )
 
 " ================== Dataloader & sampler ================== "
@@ -99,23 +86,11 @@ model_store = store(group="model")
 # the launch_experiment function.
 model_store(
     pbuilds(
-        ExampleModel,
-        encoder_dim=128,
-        decoder_dim=64,
-        decoder_output_dim=8,
+        VAE,
+        latent_dim=128,
     ),
-    name="model_a",
+    name="vae",
 )
-model_store(
-    pbuilds(
-        ExampleModel,
-        encoder_dim=256,
-        decoder_dim=128,
-        decoder_output_dim=8,
-    ),
-    name="model_b",
-)
-
 
 " ================== Optimizer ================== "
 
@@ -191,8 +166,8 @@ Experiment = builds(
     populate_full_signature=True,
     hydra_defaults=[
         "_self_",
-        {"dataset": "image_a"},
-        {"model": "model_a"},
+        {"dataset": "mnist"},
+        {"model": "vae"},
         {"optimizer": "adam"},
         {"scheduler": "step"},
         {"training": "default"},
@@ -211,27 +186,14 @@ experiment_store(
     make_config(
         hydra_defaults=[
             "_self_",
-            {"override /model": "model_a"},
-            {"override /dataset": "image_a"},
+            {"override /dataset": "mnist"},
+            {"override /model": "vae"},
         ],
         bases=(Experiment,),
         epochs=100,
     ),
-    name="exp_a",
+    name="vae_mnist",
 )
-experiment_store(
-    make_config(
-        hydra_defaults=[
-            "_self_",
-            {"override /model": "model_b"},
-            {"override /dataset": "image_b"},
-        ],
-        bases=(Experiment,),
-        epochs=500,
-    ),
-    name="exp_b",
-)
-
 
 " ================== Model testing ================== "
 

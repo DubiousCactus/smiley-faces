@@ -11,6 +11,19 @@ function, visualization code, etc.)
 """
 
 import torch
+import torch.nn.functional as F
+
+
+def VAE_loss(
+    y_pred: torch.Tensor, y_true: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor
+) -> torch.Tensor:
+    """
+    VAE loss function.
+    """
+    return (
+        F.mse_loss(y_pred, y_true, reduction="sum")
+        - 0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    ) / y_true.shape[0]
 
 
 def visualize_model_predictions(model: torch.nn.Module, batch) -> None:

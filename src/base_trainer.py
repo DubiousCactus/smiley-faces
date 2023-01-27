@@ -21,9 +21,9 @@ from torchmetrics import MeanMetric
 from tqdm import tqdm
 
 from conf import project as project_conf
-from utils import blink_pbar, update_pbar_str
+from utils import blink_pbar, to_cuda, update_pbar_str
 from utils.helpers import BestNModelSaver
-from utils.training import visualize_model_predictions
+from utils.training import VAE_loss, visualize_model_predictions
 
 
 class BaseTrainer:
@@ -69,12 +69,9 @@ class BaseTrainer:
         Returns:
             torch.Tensor: The loss for the batch.
         """
-        # TODO: Implement this
-        # x, y = to_cuda(batch)
-        # y_hat = self._model(x)
-        # loss = self._loss(y_hat, y)
-        # return loss
-        raise NotImplementedError
+        x, _ = to_cuda(batch)  # type: ignore
+        x_hat, mu, logvar = self._model(x)
+        return VAE_loss(x_hat, x, mu, logvar)
 
     def _train_epoch(self, description: str, epoch: int) -> float:
         """Perform a single training epoch.
@@ -112,7 +109,8 @@ class BaseTrainer:
             )
             self._pbar.update()
         epoch_loss = epoch_loss.compute().item()
-        wandb.log({"train_loss": epoch_loss}, step=epoch)
+        if project_conf.USE_WANDB:
+            wandb.log({"train_loss": epoch_loss}, step=epoch)
         return epoch_loss
 
     def _val_epoch(self, description: str, visualize: bool, epoch: int) -> float:
@@ -153,7 +151,8 @@ class BaseTrainer:
                         self._model, batch
                     )  # User implementation goes here (utils/training.py)
             val_loss = val_loss.compute().item()
-            wandb.log({"val_loss": val_loss}, step=epoch)
+            if project_conf.USE_WANDB:
+                wandb.log({"val_loss": val_loss}, step=epoch)
             self._model_saver(epoch, val_loss)
             return val_loss
 
