@@ -16,7 +16,7 @@ import torch
 import wandb
 from hydra.core.hydra_config import HydraConfig
 from hydra.utils import to_absolute_path
-from hydra_zen import just, store, zen
+from hydra_zen import store, zen
 from hydra_zen.typing import Partial
 
 import conf.experiment  # Must import the config to add all components to the store!
@@ -32,6 +32,7 @@ def launch_experiment(
     model: Partial[torch.nn.Module],
     optimizer: Partial[torch.optim.Optimizer],
     scheduler: Partial[torch.optim.lr_scheduler._LRScheduler],
+    trainer: Partial[BaseTrainer],
 ):
     run_name = os.path.basename(HydraConfig.get().runtime.output_dir)
     # Generate a random ANSI code:
@@ -45,7 +46,8 @@ def launch_experiment(
 
     "============ Partials instantiation ============"
     model_inst = model(
-        input_dim=just(dataset).img_dim ** 2
+        # input_dim=just(dataset).img_dim ** 2
+        # image_shape=just(dataset).image_shape
     )  # Use just() to get the config out of the Zen-Partial
     train_dataset, val_dataset = dataset(split="train"), dataset(split="val")
     opt_inst = optimizer(model_inst.parameters())
@@ -95,7 +97,7 @@ def launch_experiment(
     elif training.load_from_path is not None:
         model_ckpt_path = to_absolute_path(training.load_from_path)
 
-    BaseTrainer(
+    trainer(
         run_name=run_name,
         model=model_inst,
         opt=opt_inst,

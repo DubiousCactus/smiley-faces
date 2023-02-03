@@ -21,7 +21,9 @@ from unique_names_generator import get_random_name
 from unique_names_generator.data import ADJECTIVES, NAMES
 
 from dataset.mnist import MNISTDataset
-from model.vae import VAE
+from model.vae import CVAE, VAE
+from src.base_trainer import BaseTrainer
+from src.cvae_trainer import CVAE_trainer
 from train import launch_experiment
 
 # Set hydra.job.chdir=True using store():
@@ -88,10 +90,15 @@ model_store(
     pbuilds(
         VAE,
         latent_dim=128,
+        input_dim=784,
     ),
     name="vae",
 )
 
+model_store(
+    pbuilds(CVAE, latent_dim=128, condition_shape=1, image_shape=(1, 28, 28)),
+    name="cvae",
+)
 " ================== Optimizer ================== "
 
 
@@ -157,9 +164,24 @@ class TrainingConfig:
     load_from_run: Optional[str] = None
 
 
-testing_store = store(group="training")
-testing_store(TrainingConfig, name="default")
+training_store = store(group="training")
+training_store(TrainingConfig, name="default")
 
+trainer_store = store(group="trainer")
+trainer_store(
+    pbuilds(
+        BaseTrainer,
+    ),
+    name="base",
+)
+
+trainer_store(
+    pbuilds(
+        CVAE_trainer,
+        # specialized_argument=specialized_argument,
+    ),
+    name="cvae_trainer",
+)
 
 Experiment = builds(
     launch_experiment,
@@ -171,6 +193,7 @@ Experiment = builds(
         {"model": "vae"},
         {"optimizer": "adam"},
         {"scheduler": "step"},
+        {"trainer": "base"},
     ],
     data_loader=pbuilds(
         DataLoader, builds_bases=(DataloaderConf,)
@@ -193,7 +216,18 @@ experiment_store(
     ),
     name="vae_mnist",
 )
-
+experiment_store(
+    make_config(
+        hydra_defaults=[
+            "_self_",
+            {"override /dataset": "mnist"},
+            {"override /model": "cvae"},
+            {"override /trainer": "cvae_trainer"},
+        ],
+        bases=(Experiment,),
+    ),
+    name="cvae_mnist",
+)
 " ================== Model testing ================== "
 
 
@@ -205,8 +239,8 @@ class TestingConfig:
     load_from_run: Optional[str] = None
 
 
-testing_store = store(group="testing")
-testing_store(TestingConfig, name="default")
+training_store = store(group="testing")
+training_store(TestingConfig, name="default")
 
 
 ExperimentEvaluation = builds(

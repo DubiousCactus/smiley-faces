@@ -23,7 +23,7 @@ from tqdm import tqdm
 from conf import project as project_conf
 from utils import blink_pbar, to_cuda, update_pbar_str
 from utils.helpers import BestNModelSaver
-from utils.training import VAE_loss, visualize_model_predictions
+from utils.training import VAE_loss
 
 
 class BaseTrainer:
@@ -148,9 +148,7 @@ class BaseTrainer:
                 )
                 " ==================== Visualization ==================== "
                 if visualize and not has_visualized:
-                    visualize_model_predictions(
-                        self._model, to_cuda(batch)
-                    )  # User implementation goes here (utils/training.py)
+                    self._visualize(to_cuda(batch))
                     has_visualized = True
             val_loss = val_loss.compute().item()
             if project_conf.USE_WANDB:

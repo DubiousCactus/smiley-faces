@@ -27,13 +27,16 @@ def VAE_loss(
     ) / y_true.shape[0]
 
 
-def visualize_model_predictions(model: torch.nn.Module, batch) -> None:
+def visualize_model_predictions(model: torch.nn.Module, batch, cond=False) -> None:
     """
     Visualize model predictions on a dataset.
     """
     model.eval()
     with torch.no_grad():
-        samples = model.sample(10)
+        if not cond:
+            samples = model.sample(10)
+        else:
+            samples = model.sample(10, batch[0][1, :10])
         # Plot a row of 5 images with matplotlib
         fig, axs = plt.subplots(1, 10)
         for i in range(10):
