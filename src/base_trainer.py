@@ -123,6 +123,7 @@ class BaseTrainer:
         """
         "==================== Validation loop for one epoch ===================="
         color_code = project_conf.ANSI_COLORS[project_conf.Theme.VALIDATION.value]
+        has_visualized = False
         with torch.no_grad():
             val_loss = MeanMetric()
             for i, batch in enumerate(self._val_loader):
@@ -146,10 +147,11 @@ class BaseTrainer:
                     color_code,
                 )
                 " ==================== Visualization ==================== "
-                if visualize:
+                if visualize and not has_visualized:
                     visualize_model_predictions(
-                        self._model, batch
+                        self._model, to_cuda(batch)
                     )  # User implementation goes here (utils/training.py)
+                    has_visualized = True
             val_loss = val_loss.compute().item()
             if project_conf.USE_WANDB:
                 wandb.log({"val_loss": val_loss}, step=epoch)

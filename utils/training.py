@@ -10,6 +10,7 @@ Training utilities. This is a good place for your code that is used in training 
 function, visualization code, etc.)
 """
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 
@@ -30,4 +31,12 @@ def visualize_model_predictions(model: torch.nn.Module, batch) -> None:
     """
     Visualize model predictions on a dataset.
     """
-    raise NotImplementedError
+    model.eval()
+    with torch.no_grad():
+        samples = model.sample(10)
+        # Plot a row of 5 images with matplotlib
+        fig, axs = plt.subplots(1, 10)
+        for i in range(10):
+            axs[i].imshow(samples[i, 0, :, :].cpu().numpy())
+            axs[i].axis("off")
+        plt.show()

@@ -166,11 +166,11 @@ Experiment = builds(
     populate_full_signature=True,
     hydra_defaults=[
         "_self_",
+        {"training": "default"},
         {"dataset": "mnist"},
         {"model": "vae"},
         {"optimizer": "adam"},
         {"scheduler": "step"},
-        {"training": "default"},
     ],
     data_loader=pbuilds(
         DataLoader, builds_bases=(DataloaderConf,)
@@ -190,7 +190,6 @@ experiment_store(
             {"override /model": "vae"},
         ],
         bases=(Experiment,),
-        epochs=100,
     ),
     name="vae_mnist",
 )

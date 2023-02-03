@@ -10,6 +10,8 @@ VAE model.
 """
 
 
+import math
+
 import torch
 
 
@@ -20,6 +22,7 @@ class VAE(torch.nn.Module):
         latent_dim: int,
     ) -> None:
         super().__init__()
+        self._img_dim = int(math.sqrt(input_dim))
         self._encoder = torch.nn.Sequential(
             torch.nn.Linear(input_dim, 512),
             torch.nn.ReLU(),
@@ -45,3 +48,9 @@ class VAE(torch.nn.Module):
         z = mu + torch.exp(0.5 * logvar) * torch.randn_like(logvar)
         # dist = torch.distributions.Normal(mu, torch.exp(0.5 * logvar))
         return self._decoder(z).view(img_shape), mu, logvar
+
+    def sample(self, num_samples: int) -> torch.Tensor:
+        z = torch.randn(
+            num_samples, self._latent_dim, device=self._decoder[0].weight.device
+        )
+        return self._decoder(z).view(num_samples, 1, self._img_dim, self._img_dim)
