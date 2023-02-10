@@ -54,6 +54,8 @@ def launch_experiment(
     scheduler_inst = scheduler(
         opt_inst
     )  # TODO: handle the epoch parameter for CosineAnnealingLR
+    if isinstance(scheduler_inst, torch.optim.lr_scheduler.CosineAnnealingLR):
+        scheduler_inst.T_max = training.epochs
 
     "============ CUDA ============"
     model_inst: torch.nn.Module = to_cuda(model_inst)  # type: ignore

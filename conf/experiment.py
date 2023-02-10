@@ -147,6 +147,7 @@ sched_store(
 sched_store(
     pbuilds(
         torch.optim.lr_scheduler.CosineAnnealingLR,
+        T_max=100,
     ),
     name="cosine",
 )

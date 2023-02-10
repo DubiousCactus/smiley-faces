@@ -34,12 +34,16 @@ def visualize_model_predictions(model: torch.nn.Module, batch, cond=False) -> No
     model.eval()
     with torch.no_grad():
         if not cond:
-            samples = model.sample(10)
+            samples = model.sample(10)  # type: ignore
         else:
-            samples = model.sample(10, batch[0][1, :10])
+            _, y = batch
+            samples = model.sample(10, y[:10])  # type: ignore
         # Plot a row of 5 images with matplotlib
         fig, axs = plt.subplots(1, 10)
         for i in range(10):
             axs[i].imshow(samples[i, 0, :, :].cpu().numpy())
             axs[i].axis("off")
+            if cond:
+                # Plot the label under each image:
+                axs[i].set_title(f"{y[:10][i].item()}")
         plt.show()

@@ -23,7 +23,7 @@ from tqdm import tqdm
 from conf import project as project_conf
 from utils import blink_pbar, to_cuda, update_pbar_str
 from utils.helpers import BestNModelSaver
-from utils.training import VAE_loss
+from utils.training import VAE_loss, visualize_model_predictions
 
 
 class BaseTrainer:
@@ -148,13 +148,16 @@ class BaseTrainer:
                 )
                 " ==================== Visualization ==================== "
                 if visualize and not has_visualized:
-                    self._visualize(to_cuda(batch))
+                    self._visualize(to_cuda(batch))  # type: ignore
                     has_visualized = True
             val_loss = val_loss.compute().item()
             if project_conf.USE_WANDB:
                 wandb.log({"val_loss": val_loss}, step=epoch)
             self._model_saver(epoch, val_loss)
             return val_loss
+
+    def _visualize(self, batch: Union[Tuple, List, torch.Tensor]) -> None:
+        visualize_model_predictions(self._model, batch)
 
     def train(
         self,

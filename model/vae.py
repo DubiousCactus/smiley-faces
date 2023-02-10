@@ -75,16 +75,29 @@ class CVAE(torch.nn.Module):
         )
         self._encoder = torch.nn.Sequential(
             torch.nn.Linear(image_dim + self._condition_dim, 512),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, 512),
+            torch.nn.BatchNorm1d(512),
             torch.nn.ReLU(),
             torch.nn.Linear(512, 256),
+            torch.nn.BatchNorm1d(256),
             torch.nn.ReLU(),
             torch.nn.Linear(256, 2 * latent_dim),  # mu, logvar
         )
         self._latent_dim = latent_dim
         self._decoder = torch.nn.Sequential(
             torch.nn.Linear(latent_dim + self._condition_dim, 256),
+            torch.nn.BatchNorm1d(256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 256),
+            torch.nn.BatchNorm1d(256),
             torch.nn.ReLU(),
             torch.nn.Linear(256, 512),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, 512),
+            torch.nn.BatchNorm1d(512),
             torch.nn.ReLU(),
             torch.nn.Linear(512, image_dim),
         )
@@ -100,9 +113,7 @@ class CVAE(torch.nn.Module):
         z = mu + torch.exp(0.5 * logvar) * torch.randn_like(logvar)
         # dist = torch.distributions.Normal(mu, torch.exp(0.5 * logvar))
         return (
-            self._decoder(torch.concat([z, condition], dim=-1)).view(
-                -1, *list(x.shape[1:])
-            ),
+            self._decoder(torch.concat([z, condition], dim=-1)).view(x.shape),
             mu,
             logvar,
         )
@@ -112,5 +123,5 @@ class CVAE(torch.nn.Module):
             num_samples, self._latent_dim, device=self._decoder[0].weight.device
         )
         return self._decoder(
-            torch.concat([z, c.reshape(-1, self._condition_dim)])
-        ).view(num_samples, 1, self._img_dim, self._img_dim)
+            torch.concat([z, c.reshape(num_samples, self._condition_dim)], dim=1)
+        ).view(num_samples, self._img_shape[0], self._img_shape[1], self._img_shape[2])
