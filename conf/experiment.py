@@ -21,7 +21,7 @@ from unique_names_generator import get_random_name
 from unique_names_generator.data import ADJECTIVES, NAMES
 
 from dataset.mnist import MNISTDataset
-from model.vae import CVAE, VAE
+from model.vae import CVAE, VAE, ConvCVAE
 from src.base_trainer import BaseTrainer
 from src.cvae_trainer import CVAE_trainer
 from train import launch_experiment
@@ -75,7 +75,7 @@ class SamplerConf:
 
 @dataclass
 class DataloaderConf:
-    batch_size: int = 16
+    batch_size: int = 64
     drop_last: bool = True
     shuffle: bool = True
 
@@ -99,6 +99,11 @@ model_store(
     pbuilds(CVAE, latent_dim=128, condition_shape=1, image_shape=(1, 28, 28)),
     name="cvae",
 )
+model_store(
+    pbuilds(ConvCVAE, latent_dim=128, condition_shape=1, image_shape=(1, 28, 28)),
+    name="conv_cvae",
+)
+
 " ================== Optimizer ================== "
 
 
