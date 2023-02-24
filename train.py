@@ -29,10 +29,10 @@ def launch_experiment(
     training,
     dataset: Partial[torch.utils.data.Dataset],
     data_loader: Partial[torch.utils.data.DataLoader],
-    model: Partial[torch.nn.Module],
     optimizer: Partial[torch.optim.Optimizer],
     scheduler: Partial[torch.optim.lr_scheduler._LRScheduler],
     trainer: Partial[BaseTrainer],
+    model: Partial[torch.nn.Module],
 ):
     run_name = os.path.basename(HydraConfig.get().runtime.output_dir)
     # Generate a random ANSI code:

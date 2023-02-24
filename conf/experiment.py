@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from test import launch_test
 from typing import Optional
 
+import hydra_zen
 import torch
 from hydra.conf import HydraConf, JobConf, RunDir
 from hydra_zen import ZenStore, builds, make_config, make_custom_builds_fn, store
@@ -20,6 +21,7 @@ from torch.utils.data import DataLoader
 from unique_names_generator import get_random_name
 from unique_names_generator.data import ADJECTIVES, NAMES
 
+from dataset.celeba import CelebADataset
 from dataset.mnist import MNISTDataset
 from model.vae import CVAE, VAE, ConvCVAE
 from src.base_trainer import BaseTrainer
@@ -62,6 +64,15 @@ dataset_store(
     ),
     name="mnist",
 )
+dataset_store(
+    pbuilds(
+        CelebADataset,
+        builds_bases=(ImageDatasetConf,),
+        dataset_root="data/celeba",
+        img_dim=CelebADataset.IMG_SIZE[0],
+    ),
+    name="celeba",
+)
 
 " ================== Dataloader & sampler ================== "
 
@@ -75,7 +86,7 @@ class SamplerConf:
 
 @dataclass
 class DataloaderConf:
-    batch_size: int = 64
+    batch_size: int = 128
     drop_last: bool = True
     shuffle: bool = True
 
@@ -90,17 +101,18 @@ model_store(
     pbuilds(
         VAE,
         latent_dim=128,
-        input_dim=784,
+        image_shape=hydra_zen.MISSING,
+        convolutional_encoder=True,
     ),
     name="vae",
 )
 
 model_store(
-    pbuilds(CVAE, latent_dim=128, condition_shape=1, image_shape=(1, 28, 28)),
+    pbuilds(CVAE, latent_dim=128, condition_shape=1, image_shape=hydra_zen.MISSING),
     name="cvae",
 )
 model_store(
-    pbuilds(ConvCVAE, latent_dim=128, condition_shape=1, image_shape=(1, 28, 28)),
+    pbuilds(ConvCVAE, latent_dim=128, condition_shape=1, image_shape=hydra_zen.MISSING),
     name="conv_cvae",
 )
 
@@ -218,6 +230,7 @@ experiment_store(
             {"override /dataset": "mnist"},
             {"override /model": "vae"},
         ],
+        model=dict(image_shape=(1, 28, 28)),
         bases=(Experiment,),
     ),
     name="vae_mnist",
@@ -233,6 +246,18 @@ experiment_store(
         bases=(Experiment,),
     ),
     name="cvae_mnist",
+)
+experiment_store(
+    make_config(
+        hydra_defaults=[
+            "_self_",
+            {"override /dataset": "celeba"},
+            {"override /model": "vae"},
+        ],
+        model=dict(image_shape=(3, 64, 64)),
+        bases=(Experiment,),
+    ),
+    name="vae_celeba",
 )
 " ================== Model testing ================== "
 
