@@ -49,6 +49,11 @@ def launch_experiment(
         # input_dim=just(dataset).img_dim ** 2
         # image_shape=just(dataset).image_shape
     )  # Use just() to get the config out of the Zen-Partial
+    print(model_inst)
+    print(f"Number of parameters: {sum(p.numel() for p in model_inst.parameters())}")
+    print(
+        f"Number of trainable parameters: {sum(p.numel() for p in model_inst.parameters() if p.requires_grad)}"
+    )
     train_dataset, val_dataset = dataset(split="train"), dataset(split="val")
     opt_inst = optimizer(model_inst.parameters())
     scheduler_inst = scheduler(

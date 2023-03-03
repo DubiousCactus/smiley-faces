@@ -67,29 +67,32 @@ class CNN(torch.nn.Module):
         self,
         input_shape: Tuple[int, int, int],
         output_dim: int,
-        pooling: bool = False,
+        pooling: bool = True,
     ) -> None:
         super().__init__()
-        self._layers = torch.nn.Sequential(
-            torch.nn.Conv2d(input_shape[0], 32, 7),
+        self._cnn = torch.nn.Sequential(
+            torch.nn.Conv2d(input_shape[0], 16, 7),  # 3 -> 32 with 32 5x5 kernels
+            torch.nn.BatchNorm2d(16),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(16, 32, 3),
+            torch.nn.MaxPool2d(2) if pooling else torch.nn.Identity(),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.Conv2d(32, 64, 3),
+            torch.nn.MaxPool2d(2) if pooling else torch.nn.Identity(),
             torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
             torch.nn.Conv2d(64, 128, 3),
+            torch.nn.MaxPool2d(2) if pooling else torch.nn.Identity(),
             torch.nn.BatchNorm2d(128),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(128, 256, 18),
             torch.nn.Flatten(),
-            torch.nn.BatchNorm1d(256),  # More efficient
-            torch.nn.ReLU(),
-            torch.nn.Linear(256, output_dim),
         )
+        out_features = self._cnn(torch.rand(1, *input_shape)).shape[-1]
+        self._linear = torch.nn.Linear(out_features, output_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # print(self._layers(x).shape)
-        return self._layers(x)
+        return self._linear(self._cnn(x))
 
 
 class CNNDecoder(torch.nn.Module):
@@ -149,15 +152,12 @@ class VAE(torch.nn.Module):
             if not convolutional_encoder
             else CNN(image_shape, 2 * latent_dim)
         )
-        self._decoder = MLP(latent_dim, image_dim, [256, 512], batchnorm=True)
+        self._decoder = MLP(latent_dim, image_dim, [256, 512, 1024], batchnorm=True)
         self._use_conv = convolutional_encoder
 
     def forward(self, x: torch.Tensor):
         input_dim = reduce(lambda a, b: a * b, x.shape[1:])
-        # print(self._encoder)
-        # print(input_dim, x.shape)
         z_param = self._encoder(x if self._use_conv else x.reshape(-1, input_dim))
-        # print(z_param.shape)
         z, mu, logvar = reparameterization_trick(z_param, self._latent_dim)
         return self._decoder(z).view(x.shape), mu, logvar
 
@@ -167,7 +167,7 @@ class VAE(torch.nn.Module):
             self._latent_dim,
             device="cuda:0",  # self._decoder.weight.device
         )
-        return self._decoder(z).view(num_samples, 1, self._img_dim, self._img_dim)
+        return self._decoder(z).view(num_samples, *self._img_shape)
 
 
 class CVAE(torch.nn.Module):
