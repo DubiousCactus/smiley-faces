@@ -102,13 +102,19 @@ model_store(
         VAE,
         latent_dim=128,
         image_shape=hydra_zen.MISSING,
-        convolutional_encoder=True,
+        use_convolutional_encoder=True,
     ),
     name="vae",
 )
 
 model_store(
-    pbuilds(CVAE, latent_dim=128, condition_shape=1, image_shape=hydra_zen.MISSING),
+    pbuilds(
+        CVAE,
+        latent_dim=128,
+        condition_shape=1,
+        image_shape=hydra_zen.MISSING,
+        use_convolutional_encoder=True,
+    ),
     name="cvae",
 )
 model_store(
@@ -210,7 +216,7 @@ Experiment = builds(
         {"dataset": "mnist"},
         {"model": "vae"},
         {"optimizer": "adam"},
-        {"scheduler": "step"},
+        {"scheduler": "cosine"},
         {"trainer": "base"},
     ],
     data_loader=pbuilds(
@@ -243,6 +249,7 @@ experiment_store(
             {"override /model": "cvae"},
             {"override /trainer": "cvae_trainer"},
         ],
+        model=dict(image_shape=(1, 28, 28)),
         bases=(Experiment,),
     ),
     name="cvae_mnist",

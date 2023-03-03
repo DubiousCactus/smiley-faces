@@ -75,7 +75,7 @@ class CNN(torch.nn.Module):
             torch.nn.BatchNorm2d(16),
             torch.nn.ReLU(),
             torch.nn.Conv2d(16, 32, 3),
-            torch.nn.MaxPool2d(2) if pooling else torch.nn.Identity(),
+            # torch.nn.MaxPool2d(2) if pooling else torch.nn.Identity(),
             torch.nn.BatchNorm2d(32),
             torch.nn.ReLU(),
             torch.nn.Conv2d(32, 64, 3),
@@ -141,7 +141,7 @@ class VAE(torch.nn.Module):
         self,
         image_shape: Tuple[int, int, int],  # C, H, W
         latent_dim: int,
-        convolutional_encoder: bool = True,
+        use_convolutional_encoder: bool = True,
     ) -> None:
         super().__init__()
         self._img_shape = image_shape
@@ -149,11 +149,11 @@ class VAE(torch.nn.Module):
         self._latent_dim = latent_dim
         self._encoder = (
             MLP(image_dim, 2 * latent_dim, [512, 256], batchnorm=True)
-            if not convolutional_encoder
+            if not use_convolutional_encoder
             else CNN(image_shape, 2 * latent_dim)
         )
         self._decoder = MLP(latent_dim, image_dim, [256, 512, 1024], batchnorm=True)
-        self._use_conv = convolutional_encoder
+        self._use_conv = use_convolutional_encoder
 
     def forward(self, x: torch.Tensor):
         input_dim = reduce(lambda a, b: a * b, x.shape[1:])
@@ -176,6 +176,7 @@ class CVAE(torch.nn.Module):
         image_shape: Tuple[int, int, int],  # C, H, W
         condition_shape: Union[Tuple[int], int],
         latent_dim: int,
+        use_convolutional_encoder: bool = True,
     ) -> None:
         super().__init__()
         self._img_shape = image_shape
@@ -185,30 +186,51 @@ class CVAE(torch.nn.Module):
             if isinstance(condition_shape, tuple)
             else condition_shape
         )
-        self._encoder = MLP(
-            image_dim + self._condition_dim, 2 * latent_dim, [512, 512, 256]
+        self._use_conv = use_convolutional_encoder
+        if isinstance(condition_shape, tuple):
+            # TODO
+            raise NotImplementedError("CNN condition encoder not implemented")
+        self._encoder = (
+            MLP(
+                image_dim + self._condition_dim,
+                2 * latent_dim,
+                [512, 512, 256],
+                batchnorm=True,
+            )
+            if not use_convolutional_encoder
+            else CNN(
+                (image_shape[0] + self._condition_dim, *image_shape[1:]), 2 * latent_dim
+            )
         )
         self._latent_dim = latent_dim
         self._decoder = MLP(
-            latent_dim + self._condition_dim, image_dim, [256, 512, 512]
+            latent_dim + self._condition_dim,
+            image_dim,
+            [256, 512, 1024],
+            batchnorm=True,
         )
 
     def forward(self, x: torch.Tensor, c: torch.Tensor):
         img_shape = reduce(lambda a, b: a * b, x.shape[1:])
-        condition = c.reshape(-1, self._condition_dim)
         z_param = self._encoder(
-            torch.concat([x.reshape(-1, img_shape), condition], dim=-1)
+            torch.concat(
+                [x.reshape(-1, img_shape), c.reshape(-1, self._condition_dim)], dim=-1
+            )
+            if not self._use_conv
+            else torch.stack([x, c[..., None, None].expand(-1, *x.shape[1:])], dim=1)
         )
         z, mu, logvar = reparameterization_trick(z_param, self._latent_dim)
         return (
-            self._decoder(torch.concat([z, condition], dim=-1)).view(x.shape),
+            self._decoder(
+                torch.concat([z, c.reshape(-1, self._condition_dim)], dim=-1)
+            ).view(x.shape),
             mu,
             logvar,
         )
 
     def sample(self, num_samples: int, c: torch.Tensor) -> torch.Tensor:
         z = torch.randn(
-            num_samples, self._latent_dim, device=self._decoder[0].weight.device
+            num_samples, self._latent_dim, device=self.parameters().__next__().device
         )
         return self._decoder(
             torch.concat([z, c.reshape(num_samples, self._condition_dim)], dim=1)
