@@ -152,7 +152,7 @@ class VAE(torch.nn.Module):
             if not use_convolutional_encoder
             else CNN(image_shape, 2 * latent_dim)
         )
-        self._decoder = MLP(latent_dim, image_dim, [256, 512, 1024], batchnorm=True)
+        self._decoder = MLP(latent_dim, image_dim, [128, 256, 512], batchnorm=True)
         self._use_conv = use_convolutional_encoder
 
     def forward(self, x: torch.Tensor):

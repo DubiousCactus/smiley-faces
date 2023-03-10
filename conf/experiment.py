@@ -23,6 +23,7 @@ from unique_names_generator.data import ADJECTIVES, NAMES
 
 from dataset.celeba import CelebADataset
 from dataset.mnist import MNISTDataset
+from dataset.smileys import SmileysDataset
 from model.vae import CVAE, VAE, ConvCVAE
 from src.base_trainer import BaseTrainer
 from src.cvae_trainer import CVAE_trainer
@@ -72,6 +73,16 @@ dataset_store(
         img_dim=CelebADataset.IMG_SIZE[0],
     ),
     name="celeba",
+)
+dataset_store(
+    pbuilds(
+        SmileysDataset,
+        builds_bases=(ImageDatasetConf,),
+        dataset_root="data/smileys",
+        img_dim=128,
+        identity=hydra_zen.MISSING,
+    ),
+    name="smileys",
 )
 
 " ================== Dataloader & sampler ================== "
@@ -265,6 +276,18 @@ experiment_store(
         bases=(Experiment,),
     ),
     name="vae_celeba",
+)
+experiment_store(
+    make_config(
+        hydra_defaults=[
+            "_self_",
+            {"override /dataset": "smileys"},
+            {"override /model": "vae"},
+        ],
+        model=dict(image_shape=(3, 128, 128)),
+        bases=(Experiment,),
+    ),
+    name="vae_smileys",
 )
 " ================== Model testing ================== "
 

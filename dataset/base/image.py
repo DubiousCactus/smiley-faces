@@ -14,6 +14,7 @@ import abc
 from typing import Optional, Tuple, Union
 
 import albumentations as A
+import torch
 from torchvision.io.image import read_image
 from torchvision.transforms import transforms
 
@@ -37,7 +38,10 @@ class ImageDataset(BaseDataset, abc.ABC):
         super().__init__(dataset_root, augment, normalize, split, tiny=tiny)
         self._transforms = transforms.Compose(
             [
-                transforms.Resize(self.IMG_SIZE if img_dim is None else img_dim),
+                transforms.Resize(
+                    self.IMG_SIZE[0] + 8 if img_dim is None else img_dim + 8
+                ),
+                transforms.CenterCrop(self.IMG_SIZE if img_dim is None else img_dim),
             ]
         )
         self._normalization = transforms.Normalize(
@@ -64,12 +68,12 @@ class ImageDataset(BaseDataset, abc.ABC):
         Override if you need something else.
         """
         # ==== Load image and apply transforms ===
-        img = read_image(self._samples[index])  # Returns a Tensor
-        img = self._transforms(img)
+        img = read_image(self._samples[index]) / 255.0  # Returns a Tensor
+        # img = self._transforms(img)
         if self._normalize:
             img = self._normalization(img)
         if self._augment:
             img = self._augs(image=img)
         # ==== Load label and apply transforms ===
         label = self._labels[index]
-        return img, label
+        return img.type(torch.float32), label.type(torch.float32)

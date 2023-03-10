@@ -1,0 +1,3 @@
+[submodule "vendor/face_alignment"]
+	path = vendor/face_alignment
+	url = https://github.com/cftang0827/face_alignment
