@@ -46,6 +46,8 @@ hydra_store.add_to_hydra_store()
 pbuilds = make_custom_builds_fn(zen_partial=True, populate_full_signature=False)
 
 " ================== Dataset ================== "
+
+
 # Dataclasses are a great and simple way to define a base config group with default values.
 @dataclass
 class ImageDatasetConf:
@@ -100,6 +102,7 @@ class DataloaderConf:
     batch_size: int = 128
     drop_last: bool = True
     shuffle: bool = True
+    num_workers: int = 4
 
 
 " ================== Model ================== "

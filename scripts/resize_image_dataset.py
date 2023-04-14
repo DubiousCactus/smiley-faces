@@ -29,7 +29,7 @@ final_size = 128
 # crop_sz = 128
 
 
-def face_alignment(img, scale=0.9, face_size=(224, 224)):
+def face_alignment(pil_img, scale=0.9, face_size=(224, 224), target_eye_distance=300):
     """
     face alignment API for single image, get the landmark of eyes and nose and do warpaffine transformation
     :param face_img: single image that including face, I recommend to use dlib frontal face detector
@@ -37,33 +37,72 @@ def face_alignment(img, scale=0.9, face_size=(224, 224)):
 
     :return: an aligned single face image
     """
+    img = np.asarray(pil_img)
     h, w, c = img.shape
-    output_img = list()
-    face_loc_list = _face_locations_small(img)
-    for face_loc in face_loc_list:
-        # face_img = _crop_face(img, face_loc, padding_size=int((face_loc[2] - face_loc[0])*0.5))
-        face_loc_small_img = _face_locations_small(img)
-        face_land = fr.face_landmarks(img, face_loc_small_img)
-        if len(face_land) == 0:
-            return []
-        left_eye_center = _find_center_pt(face_land[0]["left_eye"])
-        right_eye_center = _find_center_pt(face_land[0]["right_eye"])
-        nose_center = _find_center_pt(face_land[0]["nose_tip"])
-        trotate = _get_rotation_matrix(
-            left_eye_center, right_eye_center, nose_center, img, scale=scale
-        )
-        warped = cv2.warpAffine(img, trotate, (w, h))
-        new_face_loc = fr.face_landmarks(warped, _face_locations_small(warped))
-        left_eye_center = _find_center_pt(new_face_loc[0]["left_eye"])
-        right_eye_center = _find_center_pt(new_face_loc[0]["right_eye"])
-        if len(new_face_loc) == 0:
-            return []
-        output_img.append(
-            _crop_face_2(
-                warped, left_eye_center, right_eye_center, padding_size=(1750, 720)
-            )
-        )
-
+    face_loc = _face_locations_small(img)[0]
+    # img_draw = ImageDraw.Draw(pil_img)
+    # img_draw.rectangle((face_loc[1], face_loc[0], face_loc[3], face_loc[2]), outline='red', width=5)
+    # pil_img.show()
+    face_img = _crop_face(
+        img, face_loc
+    )  # , padding_size=int((face_loc[2] - face_loc[0])*0.5))
+    # pil_img = Image.fromarray(face_img)
+    face_loc_small_img = _face_locations_small(face_img)
+    # drawing = ImageDraw.Draw(pil_img)
+    # drawing.rectangle((face_loc_small_img[0][1], face_loc_small_img[0][0], face_loc_small_img[0][3], face_loc_small_img[0][2]), outline='red', width=5)
+    # pil_img.show()
+    face_land = fr.face_landmarks(face_img, face_loc_small_img)
+    if len(face_land) == 0:
+        return []
+    left_eye_center = _find_center_pt(face_land[0]["left_eye"])
+    right_eye_center = _find_center_pt(face_land[0]["right_eye"])
+    nose_center = _find_center_pt(face_land[0]["nose_tip"])
+    trotate = _get_rotation_matrix(
+        left_eye_center, right_eye_center, nose_center, img, scale=scale
+    )
+    # Warp the original image so that it's centered on the nose and rescaled.
+    warped = cv2.warpAffine(img, trotate, (w, h))
+    # print("Warped original image")
+    # pil_img = Image.fromarray(warped)
+    # pil_img.show()
+    new_locations = _face_locations_small(warped)
+    new_landmarks = fr.face_landmarks(warped, new_locations)
+    left_eye_center = _find_center_pt(new_landmarks[0]["left_eye"])
+    right_eye_center = _find_center_pt(new_landmarks[0]["right_eye"])
+    if len(new_landmarks) == 0:
+        return []
+    # output_img= _crop_face(
+    # warped, new_locations[0], padding_size=int((new_locations[0][2] -
+    # new_locations[0][0])*0.35)
+    # )
+    # We want the new width to be the old one minus the distance between the eyes times a scalar,
+    # and the new height to be proportional to the new width.
+    eye_dist = right_eye_center[0] - left_eye_center[0]
+    # print(f"Original eye distance: {eye_dist}")
+    # print(f"Target eye distance: {target_eye_distance}")
+    new_width = int(target_eye_distance * w / eye_dist)
+    new_height = int(new_width * h / w)
+    old_h, old_w = h, w
+    # print("Old: ", old_h, old_w)
+    # print("New: ", new_height, new_width)
+    warped = cv2.resize(warped, (new_width, new_height))
+    h, w, c = warped.shape
+    assert h == new_height
+    assert w == new_width
+    # Crop the image such that the eyes are centered somewhere.
+    output_img = warped[
+        (left_eye_center[1] * new_height // old_h)
+        - int(0.35 * new_height) : (right_eye_center[1] * new_height // old_h)
+        + int(0.35 * new_height),
+        (left_eye_center[0] * new_width // old_w)
+        - int(0.3 * new_width) : (right_eye_center[0] * new_width // old_w)
+        + int(0.3 * new_width),
+    ]
+    # new_locations = _face_locations_small(output_img)
+    # new_landmarks = fr.face_landmarks(output_img, new_locations)
+    # left_eye_center = _find_center_pt(new_landmarks[0]["left_eye"])
+    # right_eye_center = _find_center_pt(new_landmarks[0]["right_eye"])
+    # print(f" New eye distance: {(right_eye_center[0] - left_eye_center[0])}")
     return output_img
 
 
@@ -97,6 +136,9 @@ def _get_rotation_matrix(left_eye_pt, right_eye_pt, nose_center, face_img, scale
     to get a rotation matrix by using skimage, including rotate angle, transformation distance and the scale factor
     """
     eye_angle = _angle_between_2_pt(left_eye_pt, right_eye_pt)
+    print(f"eye angle: {eye_angle}")
+    # Rotate around the nose by the eye angle and rescale by scale.
+    # TODO: Shouldn't the scale be the normalized distance between the eyes?
     M = cv2.getRotationMatrix2D(
         (nose_center[0] / 2, nose_center[1] / 2), eye_angle, scale
     )
@@ -153,12 +195,18 @@ def _crop_face_2(img, left_eye_center, right_eye_center, padding_size=(0, 0)):
 
 
 def _face_locations_raw(img, scale):
-    #     img_scale = (tf.resize(img, (img.shape[0]//scale, img.shape[1]//scale)) * 255).astype(np.uint8)
     h, w, c = img.shape
     img_scale = cv2.resize(
         img, (int(img.shape[1] // scale), int(img.shape[0] // scale))
     )
-    face_loc_small = fr.face_locations(img_scale)
+    # print("Scale factor: ", scale)
+    # pil_img = Image.fromarray(img_scale)
+    # drawing = ImageDraw.Draw(pil_img)
+    face_loc_small = fr.face_locations(img_scale, model="hog")
+    # print(face_loc_small)
+    # drawing.rectangle((face_loc_small[0][1], face_loc_small[0][0], face_loc_small[0][3],
+    # face_loc_small[0][2]), outline="red")
+    # pil_img.show()
     face_loc = []
     for ff in face_loc_small:
         tmp = [pt * scale for pt in ff]
@@ -207,17 +255,16 @@ for root, dirs, files in os.walk(_root):
         new_img = img.rotate(180)
         # plt.imshow(new_img)
         # plt.show()
-        aligned = face_alignment(np.asarray(new_img), scale=1.00)
-        # plt.imshow(aligned[0])
-        # plt.show()
-        final = Image.fromarray(aligned[0])
-        w, h = final.size
-        crop_size = 2100
-        final = final.crop((0, 600, 0 + crop_size, 600 + crop_size))
-        final = final.resize((final_size, final_size))
+        aligned = face_alignment(new_img, scale=1.00)
+        # final = Image.fromarray(aligned[0])
+        # w, h = final.size
+        # crop_size = 2100
+        # final = final.crop((0, 600, 0 + crop_size, 600 + crop_size))
+        # final = final.resize((final_size, final_size))
         # plt.imshow(np.asarray(final))
         # plt.show()
-        final.save(img_path)
+        # final.save(img_path)
+        Image.fromarray(aligned).save(img_path)
         img.close()
         new_img.close()
         os.remove(moved_path)

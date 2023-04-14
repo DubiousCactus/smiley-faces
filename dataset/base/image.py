@@ -39,7 +39,7 @@ class ImageDataset(BaseDataset, abc.ABC):
         self._transforms = transforms.Compose(
             [
                 transforms.Resize(
-                    self.IMG_SIZE[0] + 8 if img_dim is None else img_dim + 8
+                    self.IMG_SIZE[0] + 8 if img_dim is None else img_dim + 2
                 ),
                 transforms.CenterCrop(self.IMG_SIZE if img_dim is None else img_dim),
             ]
@@ -69,7 +69,7 @@ class ImageDataset(BaseDataset, abc.ABC):
         """
         # ==== Load image and apply transforms ===
         img = read_image(self._samples[index]) / 255.0  # Returns a Tensor
-        # img = self._transforms(img)
+        img = self._transforms(img)
         if self._normalize:
             img = self._normalization(img)
         if self._augment:
