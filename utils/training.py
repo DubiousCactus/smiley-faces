@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 
+from dataset.base.image import ImageDataset
+
 
 def VAE_loss(
     y_pred: torch.Tensor, y_true: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor
@@ -27,7 +29,9 @@ def VAE_loss(
     ) / y_true.shape[0]
 
 
-def visualize_model_predictions(model: torch.nn.Module, batch, cond=False) -> None:
+def visualize_model_predictions(
+    model: torch.nn.Module, batch, cond=False, normalized=True
+) -> None:
     """
     Visualize model predictions on a dataset.
     """
@@ -35,6 +39,15 @@ def visualize_model_predictions(model: torch.nn.Module, batch, cond=False) -> No
     with torch.no_grad():
         if not cond:
             samples = model.sample(10)  # type: ignore
+            samples = samples * torch.tensor(ImageDataset.IMAGE_NET_STD).unsqueeze(0)[
+                ..., None, None
+            ].to(samples.device) + torch.tensor(ImageDataset.IMAGE_NET_MEAN).unsqueeze(
+                0
+            )[
+                ..., None, None
+            ].to(
+                samples.device
+            )
         else:
             _, y = batch
             samples = model.sample(10, y[:10])  # type: ignore

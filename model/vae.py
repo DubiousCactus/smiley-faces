@@ -142,6 +142,7 @@ class VAE(torch.nn.Module):
         image_shape: Tuple[int, int, int],  # C, H, W
         latent_dim: int,
         use_convolutional_encoder: bool = True,
+        fine_tune: bool = False,
     ) -> None:
         super().__init__()
         self._img_shape = image_shape
@@ -154,6 +155,14 @@ class VAE(torch.nn.Module):
         )
         self._decoder = MLP(latent_dim, image_dim, [128, 256, 512], batchnorm=True)
         self._use_conv = use_convolutional_encoder
+        if fine_tune:
+            self._encoder.requires_grad_(False)
+            # Enable last layer of the decoder only:
+            for i, param in enumerate(self._decoder.parameters()):
+                if i >= len(list(self._decoder.parameters())) - 2:
+                    param.requires_grad_(True)
+                else:
+                    param.requires_grad_(False)
 
     def forward(self, x: torch.Tensor):
         input_dim = reduce(lambda a, b: a * b, x.shape[1:])

@@ -22,7 +22,7 @@ from dataset.base import BaseDataset
 
 
 class ImageDataset(BaseDataset, abc.ABC):
-    IMAGE_NET_MEAN, IMAGE_NET_STD = ([], [])
+    IMAGE_NET_MEAN, IMAGE_NET_STD = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     COCO_MEAN, COCO_STD = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     IMG_SIZE = (32, 32)
 

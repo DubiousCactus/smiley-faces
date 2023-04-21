@@ -117,6 +117,7 @@ model_store(
         latent_dim=128,
         image_shape=hydra_zen.MISSING,
         use_convolutional_encoder=True,
+        fine_tune=False,
     ),
     name="vae",
 )
