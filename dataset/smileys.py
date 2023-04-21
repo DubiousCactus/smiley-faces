@@ -19,7 +19,7 @@ from dataset.base.image import ImageDataset
 
 
 class SmileysDataset(ImageDataset):
-    IMG_DIM = (2160, 3840)
+    IMG_DIM = (128, 128)
 
     def __init__(
         self,

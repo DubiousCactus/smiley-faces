@@ -38,6 +38,10 @@ def face_alignment(pil_img, scale=0.9, face_size=(224, 224), target_eye_distance
     :return: an aligned single face image
     """
     img = np.asarray(pil_img)
+    # Pad this image on the sides so that the face is centered.
+    print(img.shape)
+    img = np.pad(img, ((0, 0), (1000, 1000), (0, 0)), "edge")
+    print(img.shape)
     h, w, c = img.shape
     face_loc = _face_locations_small(img)[0]
     # img_draw = ImageDraw.Draw(pil_img)
@@ -78,10 +82,21 @@ def face_alignment(pil_img, scale=0.9, face_size=(224, 224), target_eye_distance
     # We want the new width to be the old one minus the distance between the eyes times a scalar,
     # and the new height to be proportional to the new width.
     eye_dist = right_eye_center[0] - left_eye_center[0]
-    # print(f"Original eye distance: {eye_dist}")
-    # print(f"Target eye distance: {target_eye_distance}")
+    print(f"Original eye distance: {eye_dist}")
+    print(f"Target eye distance: {target_eye_distance}")
     new_width = int(target_eye_distance * w / eye_dist)
     new_height = int(new_width * h / w)
+
+    new_left_eye_center = (
+        int(new_width * left_eye_center[0] / w),
+        int(new_height * left_eye_center[1] / h),
+    )
+    new_right_eye_center = (
+        int(new_width * right_eye_center[0] / w),
+        int(new_height * right_eye_center[1] / h),
+    )
+    new_eye_dist = new_right_eye_center[0] - new_left_eye_center[0]
+    # print(f"New eye distance: {new_eye_dist}")
     old_h, old_w = h, w
     # print("Old: ", old_h, old_w)
     # print("New: ", new_height, new_width)
@@ -90,14 +105,26 @@ def face_alignment(pil_img, scale=0.9, face_size=(224, 224), target_eye_distance
     assert h == new_height
     assert w == new_width
     # Crop the image such that the eyes are centered somewhere.
+    chin_adjustment_factor = 80
+    y_shift = int(0.12 * old_h)
+    x_shift = y_shift - (target_eye_distance // 2)
+    # y_shift = x_shift + (target_eye_distance//2)
     output_img = warped[
-        (left_eye_center[1] * new_height // old_h)
-        - int(0.35 * new_height) : (right_eye_center[1] * new_height // old_h)
-        + int(0.35 * new_height),
-        (left_eye_center[0] * new_width // old_w)
-        - int(0.3 * new_width) : (right_eye_center[0] * new_width // old_w)
-        + int(0.3 * new_width),
+        max(0, new_left_eye_center[1] - y_shift)
+        + chin_adjustment_factor : min(new_left_eye_center[1] + y_shift, new_height)
+        + chin_adjustment_factor,  # y
+        max(0, new_left_eye_center[0] - x_shift) : min(
+            new_right_eye_center[0] + x_shift, new_width
+        ),  # x
     ]
+    print(output_img.shape, (2 * y_shift, 2 * x_shift + target_eye_distance))
+    if (
+        abs(output_img.shape[0] - 2 * y_shift) > 2
+        or abs(output_img.shape[1] - ((2 * x_shift) + target_eye_distance)) > 2
+    ):
+        raise Exception(
+            f"Output image size is not correct. Found {output_img.shape} but should be {(2*y_shift, 2*x_shift+target_eye_distance)}"
+        )
     # new_locations = _face_locations_small(output_img)
     # new_landmarks = fr.face_landmarks(output_img, new_locations)
     # left_eye_center = _find_center_pt(new_landmarks[0]["left_eye"])
@@ -177,23 +204,6 @@ def _crop_face(img, face_loc, padding_size=0):
     return img_crop
 
 
-def _crop_face_2(img, left_eye_center, right_eye_center, padding_size=(0, 0)):
-    h, w, c = img.shape
-    top = left_eye_center[1] - padding_size[0]
-    left = left_eye_center[0] - padding_size[1]
-
-    if top < 0:
-        top = 0
-    # if right > w - 1:
-    # right = w - 1
-    # if down > h - 1:
-    #     down = h - 1
-    if left < 0:
-        left = 0
-    img_crop = img[top:, left:]
-    return img_crop
-
-
 def _face_locations_raw(img, scale):
     h, w, c = img.shape
     img_scale = cv2.resize(
@@ -256,15 +266,17 @@ for root, dirs, files in os.walk(_root):
         # plt.imshow(new_img)
         # plt.show()
         aligned = face_alignment(new_img, scale=1.00)
-        # final = Image.fromarray(aligned[0])
+        final = Image.fromarray(aligned)
+        # final.show()
         # w, h = final.size
         # crop_size = 2100
         # final = final.crop((0, 600, 0 + crop_size, 600 + crop_size))
-        # final = final.resize((final_size, final_size))
+        final = final.resize((size, size))
         # plt.imshow(np.asarray(final))
         # plt.show()
-        # final.save(img_path)
-        Image.fromarray(aligned).save(img_path)
+        # final.show()
+        final.save(img_path)
+        # Image.fromarray(aligned).save(img_path)
         img.close()
         new_img.close()
         os.remove(moved_path)
